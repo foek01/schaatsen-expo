@@ -1,0 +1,13 @@
+{
+  "name": "schaatssprint",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Schaatssprint 500m — Expo app + Node/WebSocket server",
+  "scripts": {
+    "server": "npm --prefix server start",
+    "server:install": "npm --prefix server install",
+    "app": "npm --prefix app start",
+    "app:install": "npm --prefix app install",
+    "install:all": "npm --prefix server install && npm --prefix app install"
+  }
+}
