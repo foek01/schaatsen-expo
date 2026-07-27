@@ -12,12 +12,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "nl.schaatssprint.app",
+      "buildNumber": "1",
       "requireFullScreen": true,
       "infoPlist": {
         "UIRequiresFullScreen": true,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -40,6 +42,12 @@
           "initialOrientation": "LANDSCAPE"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "8e0787a1-43c6-4226-8f9d-c6f8dd2508ca"
+      }
+    },
+    "owner": "foeks01"
   }
 }
