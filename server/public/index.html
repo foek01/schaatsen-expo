@@ -411,8 +411,8 @@ function buildBG(){
 }
 buildBG();
 
-/* ── boarding: pas hier je eigen sponsors aan ── */
-const ADS=[{t:"McDonald's",bg:'#d62300',fg:'#ffc72c'},{t:'Ziggo',bg:'#f36f21',fg:'#ffffff'},
+/* ── boarding: geladen via /api/ads (admin: /admin) ── */
+let ADS=[{t:"McDonald's",bg:'#d62300',fg:'#ffc72c'},{t:'Ziggo',bg:'#f36f21',fg:'#ffffff'},
            {t:'KPN',bg:'#0aa14b',fg:'#ffffff'},{t:'DE FUUT',bg:'#0b3d5c',fg:'#ffd166'},
            {t:'MENUKIEZEN.NL',bg:'#101820',fg:'#4fd0ff'},{t:'VEENENDAAL',bg:'#f2f2f2',fg:'#c8102e'}];
 const PXPM=40,ADH=112;let adStrip=null,adStripM=null,STRIPW=0,PANELW=0;
@@ -433,8 +433,14 @@ function paintStrip(mirror){
     g.fillStyle=a.fg;g.fillText(a.t,0,0);g.restore();}
   return cnv;
 }
-function buildAds(){PANELW=680;STRIPW=PANELW*ADS.length;adStrip=paintStrip(false);adStripM=paintStrip(true);}
+function buildAds(){
+  if(!ADS.length) ADS=[{t:'SCHAATSSPRINT',bg:'#101820',fg:'#4fd0ff'}];
+  PANELW=680;STRIPW=PANELW*ADS.length;adStrip=paintStrip(false);adStripM=paintStrip(true);
+}
 buildAds();
+fetch('/api/ads').then(r=>r.json()).then(d=>{
+  if(d&&Array.isArray(d.ads)&&d.ads.length){ ADS=d.ads; buildAds(); }
+}).catch(()=>{});
 
 let camX=CFG.laneX,camSway=0;
 function proj(x,z,y){const zz=z<0.4?0.4:z,sc=CFG.camDepth/zz*F;

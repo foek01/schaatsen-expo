@@ -8,6 +8,20 @@ schaatsen-expo/
   server/    # Node HTTP + WebSocket lobby
 ```
 
+## Boarding-ads admin
+
+Open in de browser: `http://jouw-server/admin`
+
+Standaard wachtwoord: `schaatsadmin`  
+Zet op de VPS een eigen wachtwoord:
+
+```bash
+ADMIN_PASSWORD='jouw-sterke-wachtwoord' pm2 restart schaats-expo --update-env
+# of in Coolify/Docker: env ADMIN_PASSWORD=...
+```
+
+Ads worden opgeslagen in `server/data/ads.json` en geladen door de game via `/api/ads`.
+
 ## Lokaal draaien
 
 ### 1. Server

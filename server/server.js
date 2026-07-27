@@ -14,6 +14,9 @@ const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 8080;
 const PUB  = path.join(__dirname, 'public');
+const DATA = path.join(__dirname, 'data');
+const ADS_FILE = path.join(DATA, 'ads.json');
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'schaatsadmin';
 const COUNTDOWN_MS = 10000;          // 10 seconden aftellen
 const CHALLENGE_TTL = 25000;         // uitdaging vervalt na 25s
 
@@ -21,9 +24,121 @@ const MIME = { '.html':'text/html; charset=utf-8', '.js':'application/javascript
   '.css':'text/css; charset=utf-8', '.json':'application/json', '.png':'image/png',
   '.jpg':'image/jpeg', '.svg':'image/svg+xml', '.ico':'image/x-icon', '.webmanifest':'application/manifest+json' };
 
-const server = http.createServer((req, res) => {
-  let p = decodeURIComponent((req.url || '/').split('?')[0]);
+const DEFAULT_ADS = [
+  { t: "McDonald's", bg: '#d62300', fg: '#ffc72c' },
+  { t: 'Ziggo', bg: '#f36f21', fg: '#ffffff' },
+  { t: 'KPN', bg: '#0aa14b', fg: '#ffffff' },
+  { t: 'DE FUUT', bg: '#0b3d5c', fg: '#ffd166' },
+  { t: 'MENUKIEZEN.NL', bg: '#101820', fg: '#4fd0ff' },
+  { t: 'VEENENDAAL', bg: '#f2f2f2', fg: '#c8102e' }
+];
+
+function ensureAdsFile() {
+  if (!fs.existsSync(DATA)) fs.mkdirSync(DATA, { recursive: true });
+  if (!fs.existsSync(ADS_FILE)) {
+    fs.writeFileSync(ADS_FILE, JSON.stringify(DEFAULT_ADS, null, 2));
+  }
+}
+function readAds() {
+  ensureAdsFile();
+  try {
+    const raw = JSON.parse(fs.readFileSync(ADS_FILE, 'utf8'));
+    if (!Array.isArray(raw)) return DEFAULT_ADS.slice();
+    return raw
+      .filter(a => a && typeof a.t === 'string')
+      .map(a => ({
+        t: String(a.t).slice(0, 32),
+        bg: /^#[0-9a-fA-F]{3,8}$/.test(a.bg) ? a.bg : '#101820',
+        fg: /^#[0-9a-fA-F]{3,8}$/.test(a.fg) ? a.fg : '#ffffff'
+      }));
+  } catch (e) {
+    return DEFAULT_ADS.slice();
+  }
+}
+function writeAds(ads) {
+  ensureAdsFile();
+  fs.writeFileSync(ADS_FILE, JSON.stringify(ads, null, 2));
+}
+function json(res, code, obj) {
+  res.writeHead(code, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-cache',
+    'Access-Control-Allow-Origin': '*'
+  });
+  res.end(JSON.stringify(obj));
+}
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', c => {
+      chunks.push(c);
+      if (Buffer.concat(chunks).length > 2e6) {
+        reject(new Error('body too large'));
+        req.destroy();
+      }
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+function checkAdmin(req) {
+  const h = req.headers['x-admin-password'] || '';
+  const auth = req.headers.authorization || '';
+  const bearer = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7) : '';
+  return h === ADMIN_PASSWORD || bearer === ADMIN_PASSWORD;
+}
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url || '/', 'http://localhost');
+  let p = decodeURIComponent(url.pathname);
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,PUT,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Password, Authorization'
+    });
+    return res.end();
+  }
+
+  if (p === '/api/ads' && req.method === 'GET') {
+    return json(res, 200, { ads: readAds() });
+  }
+
+  if (p === '/api/ads' && req.method === 'PUT') {
+    if (!checkAdmin(req)) return json(res, 401, { error: 'Onjuist wachtwoord' });
+    try {
+      const body = JSON.parse(await readBody(req));
+      const list = Array.isArray(body.ads) ? body.ads : (Array.isArray(body) ? body : null);
+      if (!list) return json(res, 400, { error: 'Verwacht { ads: [...] }' });
+      if (list.length < 1) return json(res, 400, { error: 'Minimaal 1 boarding-ad' });
+      if (list.length > 24) return json(res, 400, { error: 'Maximaal 24 ads' });
+      const ads = list.map(a => ({
+        t: String(a.t || '').trim().slice(0, 32),
+        bg: /^#[0-9a-fA-F]{3,8}$/.test(a.bg) ? a.bg : '#101820',
+        fg: /^#[0-9a-fA-F]{3,8}$/.test(a.fg) ? a.fg : '#ffffff'
+      })).filter(a => a.t);
+      if (!ads.length) return json(res, 400, { error: 'Geen geldige ads' });
+      writeAds(ads);
+      return json(res, 200, { ok: true, ads });
+    } catch (e) {
+      return json(res, 400, { error: 'Ongeldige JSON' });
+    }
+  }
+
+  if (p === '/api/admin/login' && req.method === 'POST') {
+    try {
+      const body = JSON.parse(await readBody(req));
+      if (body.password === ADMIN_PASSWORD) return json(res, 200, { ok: true });
+      return json(res, 401, { error: 'Onjuist wachtwoord' });
+    } catch (e) {
+      return json(res, 400, { error: 'Ongeldige JSON' });
+    }
+  }
+
+  if (p === '/admin' || p === '/admin/') p = '/admin.html';
   if (p === '/') p = '/index.html';
+
   const safe = path.normalize(p).replace(/^(\.\.[/\\])+/, '');
   const file = path.join(PUB, safe);
   if (!file.startsWith(PUB)) { res.writeHead(403); return res.end('nope'); }
