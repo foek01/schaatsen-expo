@@ -6,3 +6,6 @@ node_modules/
 dist/
 .expo/
 web-build/
+
+server/public/ads/*
+!server/public/ads/.gitkeep

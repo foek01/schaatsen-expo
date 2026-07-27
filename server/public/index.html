@@ -421,25 +421,48 @@ function paintStrip(mirror){
   const g=cnv.getContext('2d');
   for(let rep=0;rep<2;rep++)for(let i=0;i<ADS.length;i++){
     const a=ADS[i],x=rep*STRIPW+i*PANELW;
-    g.fillStyle=a.bg;g.fillRect(x,0,PANELW,ADH);
+    g.fillStyle=a.bg||'#101820';g.fillRect(x,0,PANELW,ADH);
+    if(a._img&&a._img.complete&&a._img.naturalWidth){
+      g.save();
+      if(mirror){ g.translate(x+PANELW,0); g.scale(-1,1); g.drawImage(a._img,0,0,PANELW,ADH); }
+      else g.drawImage(a._img,x,0,PANELW,ADH);
+      g.restore();
+    }else{
+      let fs=Math.round(ADH*0.55);g.textAlign='center';g.textBaseline='middle';
+      g.font='900 '+fs+'px "Helvetica Neue",Arial,sans-serif';
+      const label=a.t||'SPONSOR';
+      while(g.measureText(label).width>PANELW*0.84&&fs>18){fs-=2;g.font='900 '+fs+'px "Helvetica Neue",Arial,sans-serif';}
+      g.save();g.translate(x+PANELW/2,ADH/2);if(mirror)g.scale(-1,1);
+      g.fillStyle='rgba(0,0,0,.28)';g.fillText(label,2,3);
+      g.fillStyle=a.fg||'#fff';g.fillText(label,0,0);g.restore();
+    }
     g.fillStyle='rgba(0,0,0,.20)';g.fillRect(x,ADH-12,PANELW,12);
     g.fillStyle='rgba(255,255,255,.12)';g.fillRect(x,0,PANELW,6);
     g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=3;g.strokeRect(x+1.5,1.5,PANELW-3,ADH-3);
-    let fs=Math.round(ADH*0.55);g.textAlign='center';g.textBaseline='middle';
-    g.font='900 '+fs+'px "Helvetica Neue",Arial,sans-serif';
-    while(g.measureText(a.t).width>PANELW*0.84&&fs>18){fs-=2;g.font='900 '+fs+'px "Helvetica Neue",Arial,sans-serif';}
-    g.save();g.translate(x+PANELW/2,ADH/2);if(mirror)g.scale(-1,1);
-    g.fillStyle='rgba(0,0,0,.28)';g.fillText(a.t,2,3);
-    g.fillStyle=a.fg;g.fillText(a.t,0,0);g.restore();}
+  }
   return cnv;
 }
 function buildAds(){
   if(!ADS.length) ADS=[{t:'SCHAATSSPRINT',bg:'#101820',fg:'#4fd0ff'}];
   PANELW=680;STRIPW=PANELW*ADS.length;adStrip=paintStrip(false);adStripM=paintStrip(true);
 }
+function loadAdImages(list){
+  const jobs=list.map(a=>new Promise(resolve=>{
+    if(!a.img){ a._img=null; return resolve(); }
+    const im=new Image();
+    im.onload=()=>{ a._img=im; resolve(); };
+    im.onerror=()=>{ a._img=null; resolve(); };
+    im.src=a.img+(a.img.includes('?')?'&':'?')+'v='+Date.now();
+  }));
+  return Promise.all(jobs);
+}
 buildAds();
-fetch('/api/ads').then(r=>r.json()).then(d=>{
-  if(d&&Array.isArray(d.ads)&&d.ads.length){ ADS=d.ads; buildAds(); }
+fetch('/api/ads').then(r=>r.json()).then(async d=>{
+  if(d&&Array.isArray(d.ads)&&d.ads.length){
+    ADS=d.ads;
+    await loadAdImages(ADS);
+    buildAds();
+  }
 }).catch(()=>{});
 
 let camX=CFG.laneX,camSway=0;

@@ -20,7 +20,9 @@ ADMIN_PASSWORD='jouw-sterke-wachtwoord' pm2 restart schaats-expo --update-env
 # of in Coolify/Docker: env ADMIN_PASSWORD=...
 ```
 
-Ads worden opgeslagen in `server/data/ads.json` en geladen door de game via `/api/ads`.
+Ads worden opgeslagen in `server/data/ads.json`. Afbeeldingen in `server/public/ads/`.
+
+**Image-formaat:** PNG, JPG of WebP · max 3 MB · ideaal **1360×224** of **680×112** px (breed × laag).
 
 ## Lokaal draaien
 

@@ -3,26 +3,33 @@
  * Node 18+, enige dependency: ws
  *
  *   npm install
- *   node server.js            (of: pm2 start server.js --name schaats)
+ *   node server.js
  *
- * Serveert /public en draait een WebSocket-lobby op dezelfde poort.
+ * Serveert /public, boarding-ads admin, en WebSocket-lobby.
  */
 const http = require('http');
 const fs   = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 8080;
 const PUB  = path.join(__dirname, 'public');
 const DATA = path.join(__dirname, 'data');
 const ADS_FILE = path.join(DATA, 'ads.json');
+const ADS_DIR = path.join(PUB, 'ads');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'schaatsadmin';
-const COUNTDOWN_MS = 10000;          // 10 seconden aftellen
-const CHALLENGE_TTL = 25000;         // uitdaging vervalt na 25s
+const COUNTDOWN_MS = 10000;
+const CHALLENGE_TTL = 25000;
+const MAX_UPLOAD = 3.5 * 1024 * 1024; // ~3.5MB
 
-const MIME = { '.html':'text/html; charset=utf-8', '.js':'application/javascript; charset=utf-8',
-  '.css':'text/css; charset=utf-8', '.json':'application/json', '.png':'image/png',
-  '.jpg':'image/jpeg', '.svg':'image/svg+xml', '.ico':'image/x-icon', '.webmanifest':'application/manifest+json' };
+const MIME = {
+  '.html':'text/html; charset=utf-8', '.js':'application/javascript; charset=utf-8',
+  '.css':'text/css; charset=utf-8', '.json':'application/json',
+  '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.webp':'image/webp',
+  '.gif':'image/gif', '.svg':'image/svg+xml', '.ico':'image/x-icon',
+  '.webmanifest':'application/manifest+json'
+};
 
 const DEFAULT_ADS = [
   { t: "McDonald's", bg: '#d62300', fg: '#ffc72c' },
@@ -33,32 +40,53 @@ const DEFAULT_ADS = [
   { t: 'VEENENDAAL', bg: '#f2f2f2', fg: '#c8102e' }
 ];
 
-function ensureAdsFile() {
+const EXT_FROM_MIME = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/webp': '.webp',
+  'image/gif': '.gif'
+};
+
+function ensureDirs() {
   if (!fs.existsSync(DATA)) fs.mkdirSync(DATA, { recursive: true });
+  if (!fs.existsSync(ADS_DIR)) fs.mkdirSync(ADS_DIR, { recursive: true });
   if (!fs.existsSync(ADS_FILE)) {
     fs.writeFileSync(ADS_FILE, JSON.stringify(DEFAULT_ADS, null, 2));
   }
 }
+
+function normalizeAd(a) {
+  if (!a || typeof a !== 'object') return null;
+  const t = String(a.t || '').trim().slice(0, 32);
+  const img = typeof a.img === 'string' && a.img.startsWith('/ads/')
+    ? a.img.replace(/[^a-zA-Z0-9/._-]/g, '').slice(0, 120)
+    : '';
+  if (!t && !img) return null;
+  return {
+    t: t || 'SPONSOR',
+    bg: /^#[0-9a-fA-F]{3,8}$/.test(a.bg) ? a.bg : '#101820',
+    fg: /^#[0-9a-fA-F]{3,8}$/.test(a.fg) ? a.fg : '#ffffff',
+    ...(img ? { img } : {})
+  };
+}
+
 function readAds() {
-  ensureAdsFile();
+  ensureDirs();
   try {
     const raw = JSON.parse(fs.readFileSync(ADS_FILE, 'utf8'));
     if (!Array.isArray(raw)) return DEFAULT_ADS.slice();
-    return raw
-      .filter(a => a && typeof a.t === 'string')
-      .map(a => ({
-        t: String(a.t).slice(0, 32),
-        bg: /^#[0-9a-fA-F]{3,8}$/.test(a.bg) ? a.bg : '#101820',
-        fg: /^#[0-9a-fA-F]{3,8}$/.test(a.fg) ? a.fg : '#ffffff'
-      }));
+    return raw.map(normalizeAd).filter(Boolean);
   } catch (e) {
     return DEFAULT_ADS.slice();
   }
 }
+
 function writeAds(ads) {
-  ensureAdsFile();
+  ensureDirs();
   fs.writeFileSync(ADS_FILE, JSON.stringify(ads, null, 2));
 }
+
 function json(res, code, obj) {
   res.writeHead(code, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -67,25 +95,41 @@ function json(res, code, obj) {
   });
   res.end(JSON.stringify(obj));
 }
-function readBody(req) {
+
+function readBody(req, max = MAX_UPLOAD) {
   return new Promise((resolve, reject) => {
     const chunks = [];
+    let size = 0;
     req.on('data', c => {
-      chunks.push(c);
-      if (Buffer.concat(chunks).length > 2e6) {
+      size += c.length;
+      if (size > max) {
         reject(new Error('body too large'));
         req.destroy();
+        return;
       }
+      chunks.push(c);
     });
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
 }
+
 function checkAdmin(req) {
   const h = req.headers['x-admin-password'] || '';
   const auth = req.headers.authorization || '';
   const bearer = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7) : '';
   return h === ADMIN_PASSWORD || bearer === ADMIN_PASSWORD;
+}
+
+function serveFile(res, file) {
+  fs.readFile(file, (err, data) => {
+    if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('Niet gevonden'); }
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
+      'Cache-Control': 'no-cache'
+    });
+    res.end(data);
+  });
 }
 
 const server = http.createServer(async (req, res) => {
@@ -95,7 +139,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET,PUT,OPTIONS',
+      'Access-Control-Allow-Methods': 'GET,PUT,POST,OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Password, Authorization'
     });
     return res.end();
@@ -108,16 +152,12 @@ const server = http.createServer(async (req, res) => {
   if (p === '/api/ads' && req.method === 'PUT') {
     if (!checkAdmin(req)) return json(res, 401, { error: 'Onjuist wachtwoord' });
     try {
-      const body = JSON.parse(await readBody(req));
+      const body = JSON.parse(await readBody(req, 1e6));
       const list = Array.isArray(body.ads) ? body.ads : (Array.isArray(body) ? body : null);
       if (!list) return json(res, 400, { error: 'Verwacht { ads: [...] }' });
       if (list.length < 1) return json(res, 400, { error: 'Minimaal 1 boarding-ad' });
       if (list.length > 24) return json(res, 400, { error: 'Maximaal 24 ads' });
-      const ads = list.map(a => ({
-        t: String(a.t || '').trim().slice(0, 32),
-        bg: /^#[0-9a-fA-F]{3,8}$/.test(a.bg) ? a.bg : '#101820',
-        fg: /^#[0-9a-fA-F]{3,8}$/.test(a.fg) ? a.fg : '#ffffff'
-      })).filter(a => a.t);
+      const ads = list.map(normalizeAd).filter(Boolean);
       if (!ads.length) return json(res, 400, { error: 'Geen geldige ads' });
       writeAds(ads);
       return json(res, 200, { ok: true, ads });
@@ -126,9 +166,32 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (p === '/api/ads/upload' && req.method === 'POST') {
+    if (!checkAdmin(req)) return json(res, 401, { error: 'Onjuist wachtwoord' });
+    try {
+      ensureDirs();
+      const body = JSON.parse(await readBody(req));
+      const dataUrl = String(body.data || '');
+      const m = dataUrl.match(/^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,(.+)$/i);
+      if (!m) return json(res, 400, { error: 'Alleen PNG, JPG, WebP of GIF (als data-URL)' });
+      const mime = m[1].toLowerCase().replace('image/jpg', 'image/jpeg');
+      const ext = EXT_FROM_MIME[mime];
+      if (!ext) return json(res, 400, { error: 'Onbekend image-type' });
+      const buf = Buffer.from(m[2], 'base64');
+      if (buf.length < 32) return json(res, 400, { error: 'Bestand te klein' });
+      if (buf.length > MAX_UPLOAD) return json(res, 400, { error: 'Max 3 MB per afbeelding' });
+      const name = 'ad-' + Date.now().toString(36) + '-' + crypto.randomBytes(3).toString('hex') + ext;
+      const file = path.join(ADS_DIR, name);
+      fs.writeFileSync(file, buf);
+      return json(res, 200, { ok: true, img: '/ads/' + name });
+    } catch (e) {
+      return json(res, 400, { error: e.message === 'body too large' ? 'Bestand te groot (max 3 MB)' : 'Upload mislukt' });
+    }
+  }
+
   if (p === '/api/admin/login' && req.method === 'POST') {
     try {
-      const body = JSON.parse(await readBody(req));
+      const body = JSON.parse(await readBody(req, 1e5));
       if (body.password === ADMIN_PASSWORD) return json(res, 200, { ok: true });
       return json(res, 401, { error: 'Onjuist wachtwoord' });
     } catch (e) {
@@ -142,12 +205,7 @@ const server = http.createServer(async (req, res) => {
   const safe = path.normalize(p).replace(/^(\.\.[/\\])+/, '');
   const file = path.join(PUB, safe);
   if (!file.startsWith(PUB)) { res.writeHead(403); return res.end('nope'); }
-  fs.readFile(file, (err, data) => {
-    if (err) { res.writeHead(404, {'Content-Type':'text/plain'}); return res.end('Niet gevonden'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
-                         'Cache-Control': 'no-cache' });
-    res.end(data);
-  });
+  serveFile(res, file);
 });
 
 const wss = new WebSocketServer({ server });
@@ -241,7 +299,7 @@ wss.on('connection', (ws) => {
         pushLobby();
         break;
 
-      case 'profile':                                  // pak/PR gewijzigd
+      case 'profile':
         if (m.suit) p.suit = m.suit;
         if (m.g) p.g = m.g === 'v' ? 'v' : 'm';
         if (typeof m.best === 'number') p.best = m.best;
@@ -281,7 +339,7 @@ wss.on('connection', (ws) => {
         if (p.pendingWith) endChallenge(p, 'geannuleerd');
         break;
 
-      case 'pos': {                                    // live positie doorgeven
+      case 'pos': {
         const o = players.get(p.opp);
         if (o) send(o.ws, { t: 'opos', d: m.d, v: m.v, en: m.en, lane: m.lane, tt: m.tt });
         break;
@@ -297,7 +355,7 @@ wss.on('connection', (ws) => {
         break;
       }
 
-      case 'quit': {                                   // race verlaten
+      case 'quit': {
         const race = races.get(p.raceId);
         if (race) { race.results[p.id] = { time: null }; finishRace(race); }
         break;
@@ -318,7 +376,6 @@ wss.on('connection', (ws) => {
   });
 });
 
-// dode verbindingen opruimen
 setInterval(() => {
   for (const p of players.values()) {
     if (!p.alive) { try { p.ws.terminate(); } catch (e) {} continue; }
@@ -326,4 +383,5 @@ setInterval(() => {
   }
 }, 30000);
 
+ensureDirs();
 server.listen(PORT, '0.0.0.0', () => console.log('Schaatssprint draait op http://0.0.0.0:' + PORT));

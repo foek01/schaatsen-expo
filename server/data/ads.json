@@ -1,32 +1,8 @@
 [
-  {
-    "t": "McDonald's",
-    "bg": "#d62300",
-    "fg": "#ffc72c"
-  },
-  {
-    "t": "Ziggo",
-    "bg": "#f36f21",
-    "fg": "#ffffff"
-  },
-  {
-    "t": "KPN",
-    "bg": "#0aa14b",
-    "fg": "#ffffff"
-  },
-  {
-    "t": "DE FUUT",
-    "bg": "#0b3d5c",
-    "fg": "#ffd166"
-  },
-  {
-    "t": "MENUKIEZEN.NL",
-    "bg": "#101820",
-    "fg": "#4fd0ff"
-  },
-  {
-    "t": "VEENENDAAL",
-    "bg": "#f2f2f2",
-    "fg": "#c8102e"
-  }
+  { "t": "McDonald's", "bg": "#d62300", "fg": "#ffc72c" },
+  { "t": "Ziggo", "bg": "#f36f21", "fg": "#ffffff" },
+  { "t": "KPN", "bg": "#0aa14b", "fg": "#ffffff" },
+  { "t": "DE FUUT", "bg": "#0b3d5c", "fg": "#ffd166" },
+  { "t": "MENUKIEZEN.NL", "bg": "#101820", "fg": "#4fd0ff" },
+  { "t": "VEENENDAAL", "bg": "#f2f2f2", "fg": "#c8102e" }
 ]
