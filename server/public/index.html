@@ -47,14 +47,14 @@
   #energyBar.low #energyFill{background:linear-gradient(90deg,#ff4d4d,#ff8a5c)}
   @keyframes pulse{from{box-shadow:0 0 0 rgba(255,60,60,0)}to{box-shadow:0 0 16px rgba(255,60,60,.85)}}
 
-  #swap{position:absolute;left:50%;transform:translateX(-50%) scale(.9);
+  #swap{position:absolute;right:max(12px,2.5%);left:auto;transform:scale(.9);
        bottom:calc(max(10px,3.5%) + clamp(62px,14vw,92px));
        padding:.55em 1.6em;border:0;border-radius:99px;font-weight:900;letter-spacing:.12em;
        font-size:clamp(12px,3.2vw,18px);background:linear-gradient(180deg,#ffd85e,#f2a51b);color:#3a2400;
        box-shadow:0 5px 0 #b87a06,0 0 26px rgba(255,190,60,.6);opacity:0;pointer-events:none;
        transition:opacity .2s,transform .2s;z-index:20}
-  #swap.show{opacity:1;pointer-events:auto;transform:translateX(-50%) scale(1);animation:bump .7s infinite alternate}
-  @keyframes bump{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-50%) scale(1.07)}}
+  #swap.show{opacity:1;pointer-events:auto;transform:scale(1);animation:bump .7s infinite alternate}
+  @keyframes bump{from{transform:scale(1)}to{transform:scale(1.07)}}
 
   #rhythm{position:absolute;left:0;right:0;bottom:max(10px,3.5%);display:flex;
        align-items:center;justify-content:center;gap:min(14px,2vw);padding:0 8px;pointer-events:none}
@@ -143,7 +143,17 @@
         font-size:clamp(11px,2.8vw,14px);background:linear-gradient(180deg,#4fd0ff,#1b8ed0);color:#04202f}
   .prow button:disabled{background:#3a444f;color:#8a949e;cursor:default}
   .prow.me{border-color:rgba(79,208,255,.45);background:rgba(79,208,255,.10)}
-  .empty{opacity:.5;font-size:clamp(11px,2.9vw,15px);padding:2em 0}
+  .prow button.star{background:transparent;color:#ffd85e;border:2px solid rgba(255,216,94,.4);
+        box-shadow:none;padding:.35em .7em;font-size:clamp(14px,3.2vw,18px)}
+  .prow button.star.on{color:#04202f;background:linear-gradient(180deg,#ffd85e,#f2a51b);border-color:transparent}
+  .sharebox{width:min(560px,92vw);display:flex;flex-direction:column;gap:10px;align-items:stretch}
+  .sharebox input{width:100%}
+  .chiprow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:36em}
+  .chip{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);border-radius:12px;
+        padding:.55em .85em;cursor:pointer;text-align:left;min-width:min(160px,42vw);color:#fff}
+  .chip:hover{border-color:rgba(79,208,255,.5);background:rgba(79,208,255,.12)}
+  .chip b{display:block;font-size:clamp(12px,3vw,15px)}
+  .chip small{opacity:.6;font-size:clamp(10px,2.4vw,12px)}
 
   #bigcount{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
         background:rgba(4,10,18,.55);z-index:25;pointer-events:none}
@@ -241,20 +251,50 @@
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
       <button class="btn" id="startBtn">Tegen de computer</button>
+      <button class="btn" id="legendsBtn">Tegen een bekende</button>
       <button class="btn warm" id="lobbyBtn">Multiplayer lobby</button>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <button class="btn ghost" id="matesBtn">Bekenden & stand</button>
       <button class="btn ghost" id="helpBtn">Uitleg</button>
       <button class="btn ghost" id="renameBtn">Naam wijzigen</button>
       <button class="btn ghost" id="wipeBtn">Wis voortgang</button>
     </div>
   </div>
 
+  <div class="panel hide" id="legends">
+    <div class="title">BEKENDE <span>SCHAATSERS</span></div>
+    <div class="sub">Race de 500m tegen een ster — AI rijdt rond hun wereldrecord-tempo.</div>
+    <div class="chiprow" id="legendList"></div>
+    <button class="btn ghost" id="legendsBack">Terug</button>
+  </div>
+
+  <div class="panel hide" id="mates">
+    <div class="title">BEKENDEN & <span>STAND</span></div>
+    <div class="sub">Wie je hebt gereden, favorieten ★ en de onderlinge stand. Opgeslagen op dit apparaat.</div>
+    <div class="list" id="matesList"><div class="empty">Nog geen bekenden — speel multiplayer of deel een link.</div></div>
+    <button class="btn ghost" id="matesBack">Terug</button>
+  </div>
+
   <div class="panel hide" id="lobby">
     <div class="title">WIE IS ER <span>ONLINE</span></div>
-    <div class="sub" id="lobbyHint">Daag iemand uit. Zodra hij accepteert telt het scherm bij jullie allebei af van 10.</div>
+    <div class="sub" id="lobbyHint">Daag iemand uit, of stuur een deel-link voor een potje.</div>
     <div class="list" id="plist"><div class="empty">Verbinden met de baan…</div></div>
-    <button class="btn ghost" id="lobbyBack">Terug naar menu</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <button class="btn warm" id="shareBtn">Deel link voor potje</button>
+      <button class="btn ghost" id="lobbyBack">Terug naar menu</button>
+    </div>
+  </div>
+
+  <div class="panel hide" id="sharePanel">
+    <div class="title">DEEL DIT <span>POTJE</span></div>
+    <div class="sub" id="shareHint">Stuur de link. Zodra iemand opent, starten jullie samen het aftellen.</div>
+    <div class="sharebox">
+      <input type="text" id="shareUrl" readonly>
+      <button class="btn" id="shareCopy">Kopieer link</button>
+      <button class="btn ghost" id="shareNative">Delen…</button>
+      <button class="btn ghost" id="shareCancel">Annuleren</button>
+    </div>
   </div>
 
   <div class="panel hide" id="invite">
@@ -268,7 +308,7 @@
 
   <div class="panel hide" id="waiting">
     <div class="title">WACHTEN OP <span id="waitName">…</span></div>
-    <div class="sub">De uitdaging is verstuurd. Zodra hij accepteert begint het aftellen.</div>
+    <div class="sub" id="waitSub">De uitdaging is verstuurd. Zodra hij accepteert begint het aftellen.</div>
     <button class="btn ghost" id="waitCancel">Annuleren</button>
   </div>
 
@@ -278,7 +318,7 @@
       <div class="step"><b>1</b><div>Zet af met <em>links</em> en <em>rechts</em>, om en om. Mobiel: tik op de linker- of rechterhelft. Laptop: pijltjestoetsen.</div></div>
       <div class="step"><b>2</b><div>Tik pas als de balk in het <em>groene vak</em> staat. Dat is PERFECT: meeste snelheid, minste energie.</div></div>
       <div class="step"><b>3</b><div>Eerste 45 meter is de <em>start</em>: korte snelle slagen die weinig energie kosten. Daarna <em>lange slagen</em>.</div></div>
-      <div class="step"><b>4</b><div>Op de achterste rechte lijn moet je <em>van baan wisselen</em>. Druk op WISSELEN, veeg omhoog, of pijltje omhoog.</div></div>
+      <div class="step"><b>4</b><div>Op de achterste rechte lijn moet je <em>van baan wisselen</em>. Mobiel: knop rechts of veeg omhoog. PC: <em>spatiebalk</em> of pijltje omhoog.</div></div>
       <div class="step"><b>5</b><div><em>Energie</em>: slordige slagen kosten drie keer zoveel als perfecte. Leeg = zwakkere afzet en een verschuivend groen vak.</div></div>
     </div>
     <button class="btn" id="tutBtn">Begrepen — rijden</button>
@@ -310,19 +350,48 @@
 /* ════════════════════════════ opslag ════════════════════════════ */
 const KEY='schaatssprint:profiel';
 const DEF=()=>({naam:'',g:'m',suit:{a:'#f26722',b:'#141821',s:'#ffffff'},
-  best:null,prSplits:null,tut:false,lvl:1,races:0,wins:0});
+  best:null,prSplits:null,tut:false,lvl:1,races:0,wins:0,mates:{}});
 const Store={
   d:DEF(),
-  load(){ try{ const r=localStorage.getItem(KEY); if(r) Object.assign(this.d,JSON.parse(r)); }catch(e){} },
+  load(){ try{ const r=localStorage.getItem(KEY); if(r) Object.assign(this.d,JSON.parse(r));
+    if(!this.d.mates||typeof this.d.mates!=='object') this.d.mates={}; }catch(e){} },
   save(){ try{ localStorage.setItem(KEY,JSON.stringify(this.d)); }catch(e){}
           Net.send({t:'profile',suit:this.d.suit,g:this.d.g,best:this.d.best}); },
-  wipe(){ try{ localStorage.removeItem(KEY); }catch(e){} this.d=DEF(); }
+  wipe(){ try{ localStorage.removeItem(KEY); }catch(e){} this.d=DEF(); },
+  recordMate(naam,won){
+    if(!naam) return;
+    const k=String(naam).slice(0,24);
+    const m=this.d.mates[k]||{wins:0,losses:0,fav:false,last:0};
+    if(won) m.wins++; else m.losses++;
+    m.last=Date.now();
+    this.d.mates[k]=m; this.save();
+  },
+  toggleFav(naam){
+    const k=String(naam).slice(0,24);
+    const m=this.d.mates[k]||{wins:0,losses:0,fav:false,last:Date.now()};
+    m.fav=!m.fav; this.d.mates[k]=m; this.save(); return m.fav;
+  }
 };
+
+/* ── bekende schaatsers (500m WR-tempo) ── */
+const LEGENDS=[
+  {naam:'Pavel Koelizjnikov',land:'RUS',g:'m',wr:33.61,suit:{a:'#ffffff',b:'#0039a6',s:'#d52b1e'}},
+  {naam:'Jordan Stolz',land:'VS',g:'m',wr:34.20,suit:{a:'#002868',b:'#bf0a30',s:'#ffffff'}},
+  {naam:'Kjeld Nuis',land:'NED',g:'m',wr:34.40,suit:{a:'#ff6600',b:'#111318',s:'#ffffff'}},
+  {naam:'Kai Verbij',land:'NED',g:'m',wr:34.32,suit:{a:'#ff6600',b:'#1a1a1a',s:'#ffffff'}},
+  {naam:'Laurent Dubreuil',land:'CAN',g:'m',wr:34.50,suit:{a:'#ff0000',b:'#ffffff',s:'#ff0000'}},
+  {naam:'Femke Kok',land:'NED',g:'v',wr:36.09,suit:{a:'#ff6600',b:'#111318',s:'#ffffff'}},
+  {naam:'Jutta Leerdam',land:'NED',g:'v',wr:36.70,suit:{a:'#ff6600',b:'#1a1a1a',s:'#ffd400'}},
+  {naam:'Brittany Bowe',land:'VS',g:'v',wr:36.58,suit:{a:'#002868',b:'#bf0a30',s:'#ffffff'}},
+  {naam:'Miho Takagi',land:'JPN',g:'v',wr:36.75,suit:{a:'#ffffff',b:'#bc002d',s:'#ffffff'}},
+  {naam:'Angelina Golikova',land:'RUS',g:'v',wr:36.80,suit:{a:'#ffffff',b:'#0039a6',s:'#d52b1e'}}
+];
+function vmaxForTime(sec){ return Math.min(17.2, Math.max(12.2, CFG.total/sec * 1.06)); }
 
 /* ════════════════════════════ netwerk ════════════════════════════ */
 const Net={
   ws:null, id:null, offset:0, connected:false, players:[], opp:null,
-  raceId:null, startAt:0, oppFin:null, lastSend:0,
+  raceId:null, startAt:0, oppFin:null, lastSend:0, inviteCode:null, pendingInvite:null,
   connect(){
     const raw=window.__WS_URL__||new URLSearchParams(location.search).get('ws');
     let url;
@@ -334,7 +403,9 @@ const Net={
     try{ this.ws=new WebSocket(url); }catch(e){ return this.retry(); }
     this.ws.onopen=()=>{ this.connected=true; setNet(true);
       this.send({t:'hello',naam:Store.d.naam,suit:Store.d.suit,g:Store.d.g,best:Store.d.best});
-      this.pingLoop(); };
+      this.pingLoop();
+      if(this.pendingInvite&&Store.d.naam) this.send({t:'inviteJoin',code:this.pendingInvite});
+    };
     this.ws.onclose=()=>{ this.connected=false; setNet(false); this.retry(); };
     this.ws.onerror=()=>{};
     this.ws.onmessage=e=>{ let m; try{m=JSON.parse(e.data);}catch(_){return;} handleNet(m); };
@@ -612,12 +683,21 @@ function reset(){
   swapBtn.classList.remove('show');bigcount.classList.remove('show');
   fbL.className='fb l';fbR.className='fb r';tiredMsg=false;myFinishTime=null;Net.oppFin=null;
 }
-function hideAll(){['menu','tut','result','namePanel','lobby','invite','waiting'].forEach(i=>$(i).classList.add('hide'));}
+function hideAll(){['menu','tut','result','namePanel','lobby','invite','waiting','legends','mates','sharePanel'].forEach(i=>$(i).classList.add('hide'));}
 function startSolo(){
   mode='solo';reset();
   OPP.naam='Rival';OPP.suit={a:'#22242a',b:'#191b20',s:'#c0212f'};OPP.g=Store.d.g;
+  OPP.vmax=aiVmaxFor(Store.d.lvl);
   $('sName').textContent=OPP.naam;
   state=ST.count;countT=3.2;hideAll();
+}
+function startLegend(L){
+  mode='solo';reset();
+  OPP.naam=L.naam; OPP.suit=L.suit; OPP.g=L.g;
+  OPP.vmax=vmaxForTime(L.wr);
+  $('sName').textContent=OPP.naam;
+  state=ST.count;countT=3.2;hideAll();
+  showPhase(L.naam.toUpperCase()+' · WR '+fmt(L.wr),2600);
 }
 function startVersus(){
   mode='versus';reset();
@@ -626,8 +706,50 @@ function startVersus(){
 }
 function openMenu(){state=ST.menu;reset();hideAll();$('menu').classList.remove('hide');syncUI();}
 function openLobby(){state=ST.menu;reset();hideAll();$('lobby').classList.remove('hide');renderLobby();}
+function openLegends(){hideAll();$('legends').classList.remove('hide');renderLegends();}
+function openMates(){hideAll();$('mates').classList.remove('hide');renderMates();}
 function openName(){hideAll();$('namePanel').classList.remove('hide');
   $('nameInput').value=Store.d.naam||'';setTimeout(()=>$('nameInput').focus(),120);}
+function renderLegends(){
+  const box=$('legendList'); box.innerHTML='';
+  LEGENDS.forEach(L=>{
+    const c=document.createElement('button'); c.type='button'; c.className='chip';
+    c.innerHTML='<b>'+L.naam+'</b><small>'+L.land+' · 500m '+fmt(L.wr)+'</small>';
+    c.addEventListener('click',()=>startLegend(L));
+    box.appendChild(c);
+  });
+}
+function renderMates(){
+  const box=$('matesList');
+  const entries=Object.entries(Store.d.mates||{});
+  if(!entries.length){ box.innerHTML='<div class="empty">Nog geen bekenden. Speel multiplayer of deel een link.</div>'; return; }
+  entries.sort((a,b)=>{
+    if(!!b[1].fav!==!!a[1].fav) return b[1].fav?1:-1;
+    return (b[1].last||0)-(a[1].last||0);
+  });
+  box.innerHTML='';
+  entries.forEach(([naam,m])=>{
+    const row=document.createElement('div'); row.className='prow';
+    const nm=document.createElement('div'); nm.className='nm';
+    nm.innerHTML=naam+'<small>stand '+m.wins+'-'+m.losses+(m.fav?' · favoriet':'')+'</small>';
+    const star=document.createElement('button'); star.className='star'+(m.fav?' on':''); star.textContent='★';
+    star.title='Favoriet';
+    star.addEventListener('click',()=>{ Store.toggleFav(naam); renderMates(); });
+    const online=Net.players.find(p=>p.naam===naam&&p.id!==Net.id&&p.status==='lobby');
+    row.appendChild(nm); row.appendChild(star);
+    if(online){
+      const b=document.createElement('button'); b.textContent='Uitdagen';
+      b.addEventListener('click',()=>{
+        Net.send({t:'challenge',to:online.id});
+        $('waitName').textContent=naam; hideAll(); $('waiting').classList.remove('hide');
+      });
+      row.appendChild(b);
+    } else {
+      const st=document.createElement('div'); st.className='st'; st.textContent='offline'; row.appendChild(st);
+    }
+    box.appendChild(row);
+  });
+}
 
 function stroke(side){
   if(state===ST.count){if(countT>0.35)showMsg('RUSTIG',600);return;}
@@ -682,26 +804,59 @@ addEventListener('keydown',e=>{
   if(!$('namePanel').classList.contains('hide')){if(e.key==='Enter')confirmName();return;}
   if(e.key==='ArrowLeft'){e.preventDefault();stroke(-1);}
   else if(e.key==='ArrowRight'){e.preventDefault();stroke(1);}
-  else if(e.key==='ArrowUp'){e.preventDefault();doSwap();}
-  else if(e.key===' '||e.key==='Enter'){if(state===ST.menu&&!$('menu').classList.contains('hide'))startSolo();
-    else if(state===ST.done)startSolo();}
+  else if(e.key==='ArrowUp'||e.key===' '){e.preventDefault();doSwap();}
+  else if(e.key==='Enter'){
+    if(state===ST.menu&&!$('menu').classList.contains('hide'))startSolo();
+    else if(state===ST.done){ mode==='versus'?openLobby():startSolo(); }
+  }
 },{passive:false});
 
 function confirmName(){
   Store.d.naam=$('nameInput').value.trim()||'Rijder';Store.save();
   Net.send({t:'hello',naam:Store.d.naam,suit:Store.d.suit,g:Store.d.g,best:Store.d.best});
+  if(Net.pendingInvite){
+    Net.send({t:'inviteJoin',code:Net.pendingInvite});
+    hideAll(); $('waiting').classList.remove('hide');
+    $('waitName').textContent='uitnodiging…';
+    return;
+  }
   if(!Store.d.tut){hideAll();$('tut').classList.remove('hide');}else openMenu();
 }
 $('nameBtn').addEventListener('click',confirmName);
 $('startBtn').addEventListener('click',()=>{if(!Store.d.tut){hideAll();$('tut').classList.remove('hide');}else startSolo();});
+$('legendsBtn').addEventListener('click',openLegends);
+$('legendsBack').addEventListener('click',openMenu);
+$('matesBtn').addEventListener('click',openMates);
+$('matesBack').addEventListener('click',openMenu);
 $('lobbyBtn').addEventListener('click',openLobby);
 $('lobbyBack').addEventListener('click',openMenu);
 $('helpBtn').addEventListener('click',()=>{hideAll();$('tut').classList.remove('hide');});
 $('renameBtn').addEventListener('click',openName);
 $('wipeBtn').addEventListener('click',()=>{Store.wipe();syncUI();openName();});
-$('tutBtn').addEventListener('click',()=>{Store.d.tut=true;Store.save();startSolo();});
+$('tutBtn').addEventListener('click',()=>{Store.d.tut=true;Store.save();
+  if(Net.pendingInvite){ confirmName(); return; }
+  startSolo();
+});
 $('againBtn').addEventListener('click',()=>{ mode==='versus'?openLobby():startSolo(); });
 $('menuBtn').addEventListener('click',openMenu);
+
+function inviteLink(code){
+  const u=new URL(location.href); u.searchParams.set('invite',code); return u.toString();
+}
+$('shareBtn').addEventListener('click',()=>{
+  if(!Net.connected){ $('lobbyHint').textContent='Geen verbinding — kan geen link maken.'; return; }
+  Net.send({t:'inviteCreate'});
+});
+$('shareCopy').addEventListener('click',async()=>{
+  const v=$('shareUrl').value; try{ await navigator.clipboard.writeText(v); $('shareHint').textContent='Link gekopieerd! Wachten tot iemand opent…'; }
+  catch(e){ $('shareUrl').select(); $('shareHint').textContent='Selecteer en kopieer de link handmatig.'; }
+});
+$('shareNative').addEventListener('click',async()=>{
+  const url=$('shareUrl').value;
+  if(navigator.share){ try{ await navigator.share({title:'Schaatssprint',text:'Kom een potje schaatsen!',url}); }catch(e){} }
+  else $('shareCopy').click();
+});
+$('shareCancel').addEventListener('click',()=>{ Net.send({t:'inviteCancel'}); Net.inviteCode=null; openLobby(); });
 
 /* ════════════════════════════ lobby-UI ════════════════════════════ */
 function suitChip(s){ s=s||{a:'#888',b:'#333',s:'#fff'};
@@ -710,24 +865,43 @@ function renderLobby(){
   const box=$('plist');
   if(!Net.connected){ box.innerHTML='<div class="empty">Geen verbinding met de server…</div>'; return; }
   const others=Net.players;
-  if(others.length<=1){ box.innerHTML='<div class="empty">Nog niemand anders online.<br>Stuur een collega de link van deze pagina.</div>'; return; }
+  const favs=Object.entries(Store.d.mates||{}).filter(([,m])=>m.fav).map(([n])=>n);
+  if(others.length<=1){
+    box.innerHTML='<div class="empty">Nog niemand anders online.<br>Gebruik <b>Deel link voor potje</b> om iemand uit te nodigen.</div>';
+    return;
+  }
   box.innerHTML='';
-  others.forEach(pl=>{
+  const sorted=[...others].sort((a,b)=>{
+    const af=favs.includes(a.naam)?1:0, bf=favs.includes(b.naam)?1:0;
+    return bf-af;
+  });
+  sorted.forEach(pl=>{
     const me=pl.id===Net.id;
     const row=document.createElement('div');
     row.className='prow'+(me?' me':'');
     const av=document.createElement('div'); av.className='av'; av.style.background=suitChip(pl.suit);
+    const mate=Store.d.mates[pl.naam];
     const nm=document.createElement('div'); nm.className='nm';
-    nm.innerHTML=(pl.naam||'Rijder')+(me?' <small>jij</small>':'<small>PR '+(pl.best?fmt(pl.best):'—')+'</small>');
+    let sub='PR '+(pl.best?fmt(pl.best):'—');
+    if(mate) sub+=' · stand '+mate.wins+'-'+mate.losses;
+    if(favs.includes(pl.naam)) sub='★ '+sub;
+    nm.innerHTML=(pl.naam||'Rijder')+(me?' <small>jij</small>':'<small>'+sub+'</small>');
     row.appendChild(av); row.appendChild(nm);
     if(me){ const st=document.createElement('div'); st.className='st'; st.textContent='JIJ'; row.appendChild(st); }
     else if(pl.status!=='lobby'){
       const st=document.createElement('div'); st.className='st busy';
       st.textContent = pl.status==='race'?'IN RACE':'BEZIG'; row.appendChild(st);
     } else {
+      if(pl.naam){
+        const star=document.createElement('button'); star.className='star'+(mate&&mate.fav?' on':''); star.textContent='★';
+        star.addEventListener('click',e=>{ e.stopPropagation(); Store.toggleFav(pl.naam); renderLobby(); });
+        row.appendChild(star);
+      }
       const b=document.createElement('button'); b.textContent='Uitdagen';
       b.addEventListener('click',()=>{ Net.send({t:'challenge',to:pl.id});
-        $('waitName').textContent=pl.naam; hideAll(); $('waiting').classList.remove('hide'); });
+        $('waitName').textContent=pl.naam;
+        $('waitSub').textContent='De uitdaging is verstuurd. Zodra hij accepteert begint het aftellen.';
+        hideAll(); $('waiting').classList.remove('hide'); });
       row.appendChild(b);
     }
     box.appendChild(row);
@@ -744,6 +918,7 @@ function handleNet(m){
     case 'lobby':
       Net.players=m.players; Net.id=m.you||Net.id;
       if(!$('lobby').classList.contains('hide')) renderLobby();
+      if(!$('mates').classList.contains('hide')) renderMates();
       break;
     case 'challenged':
       $('invTitle').textContent='UITDAGING';
@@ -756,8 +931,27 @@ function handleNet(m){
         if(m.reason==='geweigerd') $('lobbyHint').textContent='Die uitdaging is afgeslagen. Probeer iemand anders.';
         else if(m.reason==='verlopen') $('lobbyHint').textContent='De uitdaging is verlopen.'; }
       break;
+    case 'inviteCreated':
+      Net.inviteCode=m.code;
+      $('shareUrl').value=inviteLink(m.code);
+      $('shareHint').textContent='Stuur de link. Zodra iemand opent, starten jullie het aftellen.';
+      hideAll(); $('sharePanel').classList.remove('hide');
+      break;
+    case 'inviteWaiting':
+      $('waitName').textContent=m.hostNaam||'host';
+      $('waitSub').textContent='Je zit in het potje. Wachten tot de race start…';
+      hideAll(); $('waiting').classList.remove('hide');
+      break;
+    case 'inviteError':
+      $('lobbyHint').textContent=m.msg||'Uitnodiging ongeldig.';
+      Net.pendingInvite=null;
+      try{ const u=new URL(location.href); u.searchParams.delete('invite'); history.replaceState({},'',u); }catch(e){}
+      openLobby();
+      break;
     case 'raceStart':
       Net.raceId=m.raceId; Net.startAt=m.startAt; Net.offset=m.now-Date.now();
+      Net.pendingInvite=null; Net.inviteCode=null;
+      try{ const u=new URL(location.href); u.searchParams.delete('invite'); history.replaceState({},'',u); }catch(e){}
       OPP.naam=m.opponent.naam||'Tegenstander';
       OPP.suit=m.opponent.suit||OPP.suit; OPP.g=m.opponent.g||'m';
       startVersus();
@@ -879,6 +1073,7 @@ function finish(){
   if(mode==='solo'){
     state=ST.done;
     const won=!OPP.done||t<=OPP.time;
+    if(OPP.naam&&OPP.naam!=='Rival') Store.recordMate(OPP.naam,won);
     const {isPR,oldBest}=saveResult(t,won);
     $('rPlace').textContent=won?'1e PLAATS':'2e PLAATS';
     $('rPlace').className='place'+(won?' win':'');
@@ -906,12 +1101,15 @@ function finish(){
 function showVersusResult(m){
   const t=m.you!=null?m.you:(myFinishTime||0);
   const {isPR,oldBest}=saveResult(t,!!m.won);
+  if(m.themNaam) Store.recordMate(m.themNaam, !!m.won);
   $('rPlace').textContent=m.won?'GEWONNEN VAN '+ (m.themNaam||'').toUpperCase() :'VERLOREN VAN '+(m.themNaam||'').toUpperCase();
   $('rPlace').className='place'+(m.won?' win':'');
   const diff = (m.them!=null&&m.you!=null) ? (m.you-m.them) : null;
   let line = m.them!=null ? (m.themNaam+': '+fmt(m.them)+(diff!==null?'  ('+(diff<=0?'−':'+')+Math.abs(diff).toFixed(2)+'s)':''))
                           : (m.themNaam+' is niet gefinisht');
   if(isPR) line = 'NIEUW PR — '+(oldBest?(oldBest-t).toFixed(2)+'s sneller':'eerste tijd')+' · '+line;
+  const mate=m.themNaam&&Store.d.mates[m.themNaam];
+  if(mate) line += ' · stand '+mate.wins+'-'+mate.losses;
   $('rPrTag').textContent=line;
   $('rPrTag').className='prtag'+(isPR?' new':'');
   fillStats(t);
@@ -1056,9 +1254,18 @@ function frame(now){
 
 buildSwatches();
 Store.load();
+try{
+  const inv=new URLSearchParams(location.search).get('invite');
+  if(inv) Net.pendingInvite=String(inv).slice(0,16);
+}catch(e){}
 syncUI();
 Net.connect();
-if(!Store.d.naam) openName(); else openMenu();
+if(!Store.d.naam) openName();
+else if(Net.pendingInvite){
+  hideAll(); $('waiting').classList.remove('hide');
+  $('waitName').textContent='uitnodiging…';
+  $('waitSub').textContent='Je opent een gedeeld potje…';
+} else openMenu();
 requestAnimationFrame(frame);
 
 })();

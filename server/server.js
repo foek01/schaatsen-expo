@@ -213,8 +213,11 @@ const wss = new WebSocketServer({ server });
 /** @type {Map<string, Player>} */
 const players = new Map();
 const races   = new Map();
+/** @type {Map<string, {hostId:string, guestId:string|null, timer:any}>} */
+const invites = new Map();
 let seq = 0;
 const uid = () => (++seq).toString(36) + Math.random().toString(36).slice(2, 7);
+const inviteCode = () => Math.random().toString(36).slice(2, 8);
 
 function send(ws, obj) {
   if (ws && ws.readyState === 1) { try { ws.send(JSON.stringify(obj)); } catch (e) {} }
@@ -227,6 +230,19 @@ function lobbyList() {
 function pushLobby() {
   const list = lobbyList();
   for (const p of players.values()) send(p.ws, { t: 'lobby', players: list, you: p.id });
+}
+
+function clearInviteFor(playerId) {
+  for (const [code, inv] of invites) {
+    if (inv.hostId === playerId || inv.guestId === playerId) {
+      if (inv.timer) clearTimeout(inv.timer);
+      invites.delete(code);
+      const host = players.get(inv.hostId);
+      const guest = inv.guestId ? players.get(inv.guestId) : null;
+      if (host && host.inviteCode === code) host.inviteCode = null;
+      if (guest && guest.inviteCode === code) guest.inviteCode = null;
+    }
+  }
 }
 
 function endChallenge(p, reason) {
@@ -245,6 +261,8 @@ function endChallenge(p, reason) {
 }
 
 function startRace(a, b) {
+  clearInviteFor(a.id);
+  clearInviteFor(b.id);
   const id = uid();
   const startAt = Date.now() + COUNTDOWN_MS;
   const race = { id, a: a.id, b: b.id, startAt, results: {} };
@@ -252,6 +270,7 @@ function startRace(a, b) {
   a.status = b.status = 'race';
   a.raceId = b.raceId = id;
   a.opp = b.id; b.opp = a.id;
+  a.pendingWith = b.pendingWith = null;
   const info = p => ({ id: p.id, naam: p.naam, suit: p.suit, g: p.g, best: p.best });
   send(a.ws, { t: 'raceStart', raceId: id, startAt, now: Date.now(), opponent: info(b) });
   send(b.ws, { t: 'raceStart', raceId: id, startAt, now: Date.now(), opponent: info(a) });
@@ -277,7 +296,7 @@ function finishRace(race) {
 wss.on('connection', (ws) => {
   const p = { id: uid(), ws, naam: '', suit: null, g: 'm', best: null,
               status: 'lobby', pendingWith: null, challengeTimer: null,
-              raceId: null, opp: null, alive: true };
+              raceId: null, opp: null, alive: true, inviteCode: null };
   players.set(p.id, p);
   send(ws, { t: 'welcome', id: p.id, now: Date.now(), countdown: COUNTDOWN_MS });
 
@@ -305,6 +324,59 @@ wss.on('connection', (ws) => {
         if (typeof m.best === 'number') p.best = m.best;
         pushLobby();
         break;
+
+      case 'inviteCreate': {
+        if (!p.naam) return send(ws, { t: 'inviteError', msg: 'Vul eerst je naam in.' });
+        if (p.status !== 'lobby') return send(ws, { t: 'inviteError', msg: 'Je bent nu niet vrij.' });
+        clearInviteFor(p.id);
+        const code = inviteCode();
+        const inv = {
+          hostId: p.id,
+          guestId: null,
+          timer: setTimeout(() => {
+            invites.delete(code);
+            if (p.inviteCode === code) {
+              p.inviteCode = null;
+              send(p.ws, { t: 'inviteError', msg: 'Deel-link verlopen.' });
+            }
+          }, 10 * 60 * 1000)
+        };
+        invites.set(code, inv);
+        p.inviteCode = code;
+        send(ws, { t: 'inviteCreated', code });
+        break;
+      }
+
+      case 'inviteCancel': {
+        clearInviteFor(p.id);
+        break;
+      }
+
+      case 'inviteJoin': {
+        const code = String(m.code || '').slice(0, 16);
+        const inv = invites.get(code);
+        if (!inv) return send(ws, { t: 'inviteError', msg: 'Deze uitnodiging bestaat niet (meer).' });
+        const host = players.get(inv.hostId);
+        if (!host) {
+          invites.delete(code);
+          return send(ws, { t: 'inviteError', msg: 'De host is offline.' });
+        }
+        if (host.id === p.id) return send(ws, { t: 'inviteError', msg: 'Je kunt je eigen link niet openen.' });
+        if (!p.naam) return send(ws, { t: 'inviteError', msg: 'Vul eerst je naam in.' });
+        if (p.status !== 'lobby' || host.status !== 'lobby') {
+          return send(ws, { t: 'inviteError', msg: 'Iemand is nu niet vrij voor een race.' });
+        }
+        if (inv.guestId && inv.guestId !== p.id) {
+          return send(ws, { t: 'inviteError', msg: 'Dit potje is al vol.' });
+        }
+        inv.guestId = p.id;
+        p.inviteCode = code;
+        host.inviteCode = code;
+        send(ws, { t: 'inviteWaiting', hostNaam: host.naam });
+        send(host.ws, { t: 'info', msg: p.naam + ' heeft je link geopend — race start!' });
+        startRace(host, p);
+        break;
+      }
 
       case 'challenge': {
         const o = players.get(m.to);
@@ -337,6 +409,7 @@ wss.on('connection', (ws) => {
 
       case 'cancel':
         if (p.pendingWith) endChallenge(p, 'geannuleerd');
+        clearInviteFor(p.id);
         break;
 
       case 'pos': {
@@ -364,6 +437,7 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+    clearInviteFor(p.id);
     if (p.pendingWith) endChallenge(p, 'weg');
     const race = races.get(p.raceId);
     if (race) {
