@@ -1,0 +1,23 @@
+/*
+ * Schaatssprint achtergronden
+ *
+ * Lever later per scherm een 16:9 JPG/WebP aan (advies: 1920x1080).
+ * Zet de bestanden in deze map en haal daarna de commentaartekens weg.
+ * De donkere gradients, vignette en HUD blijven automatisch behouden.
+ */
+
+/* #menu      { --screen-image: url("/backgrounds/menu.webp"); } */
+/* #lobby     { --screen-image: url("/backgrounds/lobby.webp"); } */
+/* #legends   { --screen-image: url("/backgrounds/legends.webp"); } */
+/* #mates     { --screen-image: url("/backgrounds/mates.webp"); } */
+/* #namePanel { --screen-image: url("/backgrounds/profile.webp"); } */
+/* #sharePanel,
+   #invite,
+   #waiting   { --screen-image: url("/backgrounds/multiplayer.webp"); } */
+/* #tut       { --screen-image: url("/backgrounds/tutorial.webp"); } */
+/* #result    { --screen-image: url("/backgrounds/result.webp"); } */
+
+/*
+ * Het racescherm gebruikt de bestaande getekende baan op canvas.
+ * Daar is geen achtergrondbestand voor nodig.
+ */

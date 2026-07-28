@@ -8,6 +8,20 @@ schaatsen-expo/
   server/    # Node HTTP + WebSocket lobby
 ```
 
+## Schermachtergronden
+
+De AAA-interface heeft per scherm een eigen verwisselbaar achtergrondslot. Lever bij voorkeur
+**1920×1080 WebP of JPG (16:9)** aan en plaats de bestanden in:
+
+```text
+server/public/backgrounds/
+```
+
+In `server/public/backgrounds/theme.css` staan de voorbereide regels voor:
+`menu`, `lobby`, `legends`, `mates`, `profile`, `multiplayer`, `tutorial` en `result`.
+Haal bij het ontvangen van een beeld alleen de commentaartekens rond de bijbehorende regel weg.
+De gradients, vignette en glass-HUD blijven automatisch over ieder beeld staan.
+
 ## Boarding-ads admin
 
 Open in de browser: `http://jouw-server/admin`
