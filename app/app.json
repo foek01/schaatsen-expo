@@ -12,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "nl.schaatssprint.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "requireFullScreen": true,
       "infoPlist": {
         "UIRequiresFullScreen": true,
