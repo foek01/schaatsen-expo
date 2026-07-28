@@ -9,3 +9,6 @@ web-build/
 
 server/public/ads/*
 !server/public/ads/.gitkeep
+
+*.ipa
+app/build-*.ipa
